@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Gestão de Membros - Versão Melhorada</title>
+
+    <!-- Tailwind -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Libs para planilhas -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+
+    <!-- Chart.js para gráficos -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="min-h-screen bg-slate-50 text-slate-800 p-4 sm:p-6">
+    <div class="max-w-6xl mx-auto" id="app">
+      <!-- Header -->
+      <header class="mb-6">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 class="text-xl sm:text-2xl font-semibold">Gestão de Membros</h1>
+            <p class="text-xs sm:text-sm text-slate-500">
+              Marque presença, falta ou membros que estão há muito tempo sem vir.
+            </p>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-2 sm:gap-3">
+            <input
+              type="date"
+              id="selectedDate"
+              class="px-3 py-2 bg-white border rounded-md text-sm w-full sm:w-auto"
+            />
+
+            <label
+              class="cursor-pointer inline-flex items-center gap-2 px-3 py-2 bg-white border rounded-md text-sm hover:bg-slate-50"
+            >
+              <input id="fileInput" type="file" accept=".csv,.xlsx,.xls" class="hidden" />
+              <span>📁 Importar</span>
+            </label>
+
+            <button
+              id="btnNew"
+              class="px-3 py-2 bg-blue-500 text-white rounded-md text-sm hover:bg-blue-600"
+            >
+              + Novo Membro
+            </button>
+
+            <button
+              id="btnExport"
+              class="px-3 py-2 bg-emerald-500 text-white rounded-md text-sm hover:bg-emerald-600"
+            >
+              📊 Exportar CSV
+            </button>
+          </div>
+        </div>
+
+        <!-- Cards de Estatísticas -->
+        <div class="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3" id="statsGrid"></div>
+      </header>
+
+      <!-- Filtros e Busca -->
+      <div class="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div class="flex flex-wrap items-center gap-2">
+          <!-- Campo de Busca -->
+          <div class="relative">
+            <input
+              type="text"
+              id="searchInput"
+              placeholder="🔍 Buscar por nome ou email..."
+              class="pl-3 pr-8 py-2 border rounded-md bg-white text-sm w-64"
+            />
+            <button
+              id="clearSearch"
+              class="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              style="display: none;"
+            >
+              ×
+            </button>
+          </div>
+
+          <select id="filterSelect" class="px-3 py-2 border rounded-md bg-white text-sm">
+            <option value="all">📋 Todos</option>
+            <option value="present">✅ Presentes</option>
+            <option value="absent">⚠️ Faltas</option>
+            <option value="long-missing">🚨 Há muito tempo sem vir</option>
+          </select>
+
+          <button
+            id="btnClearAll"
+            class="px-3 py-2 bg-red-50 text-red-600 border border-red-200 rounded-md text-sm hover:bg-red-100"
+          >
+            🗑️ Apagar tudo
+          </button>
+        </div>
+        
+        <div class="text-xs text-slate-500">
+          Dados salvos localmente no navegador.
+        </div>
+      </div>
+
+      <!-- Tabela -->
+      <div class="bg-white border rounded-xl shadow-sm overflow-x-auto">
+        <table class="w-full min-w-[600px] text-sm">
+          <thead class="bg-slate-50 text-slate-600">
+            <tr>
+              <th class="text-left px-3 py-3 select-none" data-sort="name">Nome</th>
+              <th class="text-left px-3 py-3 select-none" data-sort="email">Email</th>
+              <th class="text-left px-3 py-3 select-none" data-sort="lastSeen">Última visita</th>
+              <th class="text-left px-3 py-3 select-none" data-sort="status">Status</th>
+              <th class="text-right px-3 py-3">Ações</th>
+            </tr>
+          </thead>
+          <tbody id="membersTbody"></tbody>
+        </table>
+      </div>
+
+      <!-- Seção de E-mail (será implementada na próxima fase) -->
+      <div class="mt-6 bg-blue-50 border border-blue-200 rounded-xl p-4">
+        <h3 class="text-lg font-semibold text-blue-800 mb-2">📧 Sistema de E-mail</h3>
+        <p class="text-sm text-blue-600 mb-3">
+          Envie e-mails personalizados para membros que estão há muito tempo sem comparecer.
+        </p>
+        <button
+          id="btnEmailSystem"
+          class="px-4 py-2 bg-blue-500 text-white rounded-md text-sm hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
+          disabled
+        >
+          🚧 Em desenvolvimento - Próxima fase
+        </button>
+      </div>
+
+      <footer class="text-center mt-6 text-xs text-slate-400">
+        Gestão de Membros v2.0 - IBC
+      </footer>
+    </div>
+
+    <!-- Modal de Membro -->
+    <div id="memberModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div class="bg-white rounded-xl shadow-lg w-full max-w-md p-6">
+        <h2 id="modalTitle" class="text-lg font-semibold mb-4">Novo Membro</h2>
+        <form id="memberForm" class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700">Nome *</label>
+            <input type="text" id="memberName" required
+              class="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700">Email</label>
+            <input type="email" id="memberEmail"
+              class="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700">Última visita</label>
+            <input type="date" id="memberLastSeen"
+              class="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700">Status inicial</label>
+            <select id="memberStatus"
+              class="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+              <option value="absent">⚠️ Falta</option>
+              <option value="present">✅ Presente</option>
+              <option value="long-missing">🚨 Há muito tempo sem vir</option>
+            </select>
+          </div>
+          <div class="flex justify-end gap-3 pt-2">
+            <button type="button" id="btnCancel"
+              class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Cancelar</button>
+            <button type="submit"
+              class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">Salvar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <script src="scripts.js"></script>
+  </body>
+</html>
+
