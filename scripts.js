@@ -446,7 +446,7 @@
           name: String(name).trim(),
           email: String(email).trim(),
           lastSeen,
-          status: 'absent',
+          status: 'present',
         };
       });
 
